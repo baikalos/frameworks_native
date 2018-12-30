@@ -253,6 +253,13 @@ Sensor::Sensor(struct sensor_t const& hwSensor, const uuid_t& uuid, int halVersi
         mStringType = SENSOR_STRING_TYPE_ACCELEROMETER_UNCALIBRATED;
         mFlags |= SENSOR_FLAG_CONTINUOUS_MODE;
         break;
+
+    case 33171016:
+        mStringType = hwSensor.stringType;
+        mFlags |= SENSOR_FLAG_ON_CHANGE_MODE;
+        mFlags |= SENSOR_FLAG_WAKE_UP;
+        break;
+
     default:
         // Only pipe the stringType, requiredPermission and flags for custom sensors.
         if (halVersion > SENSORS_DEVICE_API_VERSION_1_0 && hwSensor.stringType) {
