@@ -114,27 +114,6 @@ using ui::Hdr;
 using ui::RenderIntent;
 
 namespace {
-
-#pragma clang diagnostic push
-#pragma clang diagnostic error "-Wswitch-enum"
-
-Transform::orientation_flags fromSurfaceComposerRotation(ISurfaceComposer::Rotation rotation) {
-    switch (rotation) {
-        case ISurfaceComposer::eRotateNone:
-            return Transform::ROT_0;
-        case ISurfaceComposer::eRotate90:
-            return Transform::ROT_90;
-        case ISurfaceComposer::eRotate180:
-            return Transform::ROT_180;
-        case ISurfaceComposer::eRotate270:
-            return Transform::ROT_270;
-    }
-    ALOGE("Invalid rotation passed to captureScreen(): %d\n", rotation);
-    return Transform::ROT_0;
-}
-
-#pragma clang diagnostic pop
-
 class ConditionalLock {
 public:
     ConditionalLock(Mutex& mutex, bool lock) : mMutex(mutex), mLocked(lock) {
@@ -4894,8 +4873,6 @@ status_t SurfaceFlinger::captureScreen(const sp<IBinder>& display,
     ATRACE_CALL();
 
     if (CC_UNLIKELY(display == 0)) return BAD_VALUE;
-
-    auto renderAreaRotation = fromSurfaceComposerRotation(rotation);
 
     sp<DisplayDevice> device;
     {

@@ -18,12 +18,12 @@ public:
 
     static float getCaptureFillValue(CaptureFill captureFill);
 
-    RenderArea(uint32_t reqWidth, uint32_t reqHeight, CaptureFill captureFill,
-               Transform::orientation_flags rotation = Transform::ROT_0)
-          : mReqWidth(reqWidth),
-            mReqHeight(reqHeight),
-            mCaptureFill(captureFill),
-            mRotationFlags(rotation) {}
+
+    RenderArea(uint32_t reqHeight, uint32_t reqWidth, CaptureFill captureFill,
+               ISurfaceComposer::Rotation rotation = ISurfaceComposer::eRotateNone)
+          : mReqHeight(reqHeight), mReqWidth(reqWidth), mCaptureFill(captureFill) {
+        mRotationFlags = Transform::fromRotation(rotation);
+    }
 
     virtual ~RenderArea() = default;
 
@@ -71,10 +71,10 @@ public:
     CaptureFill getCaptureFill() const { return mCaptureFill; };
 
 private:
-    const uint32_t mReqWidth;
-    const uint32_t mReqHeight;
-    const CaptureFill mCaptureFill;
-    const Transform::orientation_flags mRotationFlags;
+    uint32_t mReqHeight;
+    uint32_t mReqWidth;
+    Transform::orientation_flags mRotationFlags;
+    CaptureFill mCaptureFill;
 };
 
 } // namespace android
