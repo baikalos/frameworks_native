@@ -4907,7 +4907,7 @@ status_t SurfaceFlinger::captureLayers(const sp<IBinder>& layerHandleBinder,
     public:
         LayerRenderArea(SurfaceFlinger* flinger, const sp<Layer>& layer, const Rect crop,
                         int32_t reqWidth, int32_t reqHeight, bool childrenOnly)
-              : RenderArea(reqWidth, reqHeight, CaptureFill::CLEAR),
+              : RenderArea(reqHeight, reqWidth, CaptureFill::CLEAR),
                 mLayer(layer),
                 mCrop(crop),
                 mNeedsFiltering(false),
