@@ -286,8 +286,6 @@ public:
     // want to support color management to disable color management.
     static bool hasWideColorDisplay;
 
-    static int primaryDisplayOrientation;
-
     static char const* getServiceName() ANDROID_API {
         return "SurfaceFlinger";
     }
@@ -346,6 +344,8 @@ public:
 
     bool authenticateSurfaceTextureLocked(
         const sp<IGraphicBufferProducer>& bufferProducer) const;
+
+    int getPrimaryDisplayOrientation() const { return mPrimaryDisplayOrientation; }
 
 private:
     friend class Client;
@@ -840,7 +840,6 @@ private:
     int mDebugRegion;
     int mDebugDDMS;
     int mDebugDisableHWC;
-    bool mDebugPropDisableHWC;
     int mDebugDisableTransformHint;
     volatile nsecs_t mDebugInSwapBuffers;
     nsecs_t mLastSwapBufferTime;
@@ -858,12 +857,11 @@ private:
     // Restrict layers to use two buffers in their bufferqueues.
     bool mLayerTripleBufferingDisabled = false;
 
-    bool mDamageUsesScreenReference;
-
     // these are thread safe
     mutable std::unique_ptr<MessageQueue> mEventQueue{std::make_unique<impl::MessageQueue>()};
     FrameTracker mAnimFrameTracker;
     DispSync mPrimaryDispSync;
+    int mPrimaryDisplayOrientation = DisplayState::eOrientationDefault;
 
     // protected by mDestroyedLayerLock;
     mutable Mutex mDestroyedLayerLock;

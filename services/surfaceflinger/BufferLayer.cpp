@@ -114,6 +114,7 @@ bool BufferLayer::isFixedSize() const {
 }
 
 status_t BufferLayer::setBuffers(uint32_t w, uint32_t h, PixelFormat format, uint32_t flags) {
+#ifndef ALLOW_TOO_LARGE_DIMENSIONS
     uint32_t const maxSurfaceDims =
             min(mFlinger->getMaxTextureSize(), mFlinger->getMaxViewportDims());
 
@@ -121,8 +122,9 @@ status_t BufferLayer::setBuffers(uint32_t w, uint32_t h, PixelFormat format, uin
     // can handle.
     if ((uint32_t(w) > maxSurfaceDims) || (uint32_t(h) > maxSurfaceDims)) {
         ALOGE("dimensions too large %u x %u", uint32_t(w), uint32_t(h));
-        //return BAD_VALUE;
+        return BAD_VALUE;
     }
+#endif
 
     mFormat = format;
 
@@ -204,7 +206,7 @@ void BufferLayer::onDraw(const RenderArea& renderArea, const Region& clip,
 
     if (!blackOutLayer) {
         // TODO: we could be more subtle with isFixedSize()
-        const bool useFiltering = needsFiltering(renderArea) || isFixedSize();
+        const bool useFiltering = getFiltering() || needsFiltering(renderArea) || isFixedSize();
 
         // Query the texture matrix given our current filtering mode.
         float textureMatrix[16];
@@ -631,40 +633,7 @@ void BufferLayer::setPerFrameData(const sp<const DisplayDevice>& displayDevice) 
         visible.dump(LOG_TAG);
     }
 
-    if(mFlinger->mDamageUsesScreenReference) {
-       const Rect& frame = hwcInfo.displayFrame;
-       int32_t left = frame.left;
-       int32_t top = frame.top;
-       int32_t right = frame.right;
-       int32_t bottom = frame.bottom;
-       if(surfaceDamageRegion.getBounds() == Rect::INVALID_RECT) {
-          auto fullSource = Region(Rect(left, top, right, bottom));
-          error = hwcLayer->setSurfaceDamage(fullSource);
-       } else {
-          //There is no easy way to scale, so just scale the bounds
-          const Rect& preDamageRect = surfaceDamageRegion.bounds();
-          const FloatRect& crop = hwcInfo.sourceCrop;
-
-          float frameWidth = right - left;
-          float frameHeight = bottom - top;
-
-          float cropWidth = crop.right - crop.left;
-          float cropHeight = crop.bottom - crop.top;
-
-          float wFactor = frameWidth / cropWidth;
-          float hFactor = frameHeight / cropHeight;
-
-          Rect scaledDamageRect = Rect(
-              (int)(preDamageRect.left * wFactor),
-              (int)(preDamageRect.top * hFactor),
-              (int)(preDamageRect.right * wFactor),
-              (int)(preDamageRect.bottom * hFactor));
-          Region realDamage = Region(scaledDamageRect).translate(frame.left, frame.top);
-          error = hwcLayer->setSurfaceDamage(realDamage);
-       }
-    } else {
-       error = hwcLayer->setSurfaceDamage(surfaceDamageRegion);
-    }
+    error = hwcLayer->setSurfaceDamage(surfaceDamageRegion);
     if (error != HWC2::Error::None) {
         ALOGE("[%s] Failed to set surface damage: %s (%d)", mName.string(),
               to_string(error).c_str(), static_cast<int32_t>(error));
