@@ -1018,6 +1018,7 @@ private:
     // don't use a lock for these, we don't care
     int mDebugRegion = 0;
     bool mDebugDisableHWC = false;
+    bool mDisableSecondaryHWC = false;
     bool mDebugDisableTransformHint = false;
     volatile nsecs_t mDebugInTransaction = 0;
     bool mForceFullDamage = false;

@@ -764,6 +764,9 @@ void SurfaceFlinger::readPersistentProperties() {
 
     property_get("persist.sys.sf.color_mode", value, "0");
     mForceColorMode = static_cast<ColorMode>(atoi(value));
+
+    property_get("persist.sys.sf.disable_sec_hwc", value, "false");
+    mDisableSecondaryHWC = std::string(value) == "true";
 }
 
 void SurfaceFlinger::startBootAnim() {
@@ -1890,6 +1893,10 @@ void SurfaceFlinger::calculateWorkingSet() {
                 auto& compositionState = layer->editState();
                 compositionState.forceClientComposition = false;
                 if (!compositionState.hwc || mDebugDisableHWC || mDebugRegion) {
+                    compositionState.forceClientComposition = true;
+                }
+
+                if( mDisableSecondaryHWC && !displayDevice->isPrimary() ) {
                     compositionState.forceClientComposition = true;
                 }
 
