@@ -104,6 +104,7 @@ int main(int, char**) {
     // Keeps us from unnecessarily using big cores
     // Do this after the binder thread pool init
     if (cpusets_enabled()) set_cpuset_policy(0, SP_SYSTEM);
+    //if (cpusets_enabled()) set_cpuset_policy(0, SP_FOREGROUND);
 
     // initialize before clients can connect
     flinger->init();
