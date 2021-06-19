@@ -993,7 +993,6 @@ int SurfaceFlinger::getActiveConfig(const sp<IBinder>& displayToken) {
 void SurfaceFlinger::setDesiredActiveConfig(const ActiveConfigInfo& info) {
     ATRACE_CALL();
     auto& refreshRate = mRefreshRateConfigs->getRefreshRateFromConfigId(info.configId);
-    ALOGV("setDesiredActiveConfig(%s)", refreshRate.getName().c_str());
 
     std::lock_guard<std::mutex> lock(mActiveConfigLock);
     if (mDesiredActiveConfigChanged) {
@@ -1006,7 +1005,7 @@ void SurfaceFlinger::setDesiredActiveConfig(const ActiveConfigInfo& info) {
         // Check is we are already at the desired config
         const auto display = getDefaultDisplayDeviceLocked();
         if (!display || display->getActiveConfig() == refreshRate.getConfigId()) {
-            return;
+            //return;
         }
 
         // Initiate a config change.
@@ -1049,12 +1048,23 @@ status_t SurfaceFlinger::setActiveConfig(const sp<IBinder>& displayToken, int mo
             ALOGW("Attempt to set allowed display configs for virtual display");
             return INVALID_OPERATION;
         } else {
-            const HwcConfigIndexType config(mode);
-            const float fps = mRefreshRateConfigs->getRefreshRateFromConfigId(config).getFps();
-            const scheduler::RefreshRateConfigs::Policy policy{config, {fps, fps}};
-            constexpr bool kOverridePolicy = false;
+            if( mode == -1 ) {
+                const float min_fps = mRefreshRateConfigs->getMinRefreshRate().getFps();
+                const float max_fps = mRefreshRateConfigs->getMaxRefreshRate().getFps();
+                const HwcConfigIndexType config(mRefreshRateConfigs->getMaxRefreshRate().getConfigId());
+                const scheduler::RefreshRateConfigs::Policy policy{config, {min_fps, max_fps}};
+                constexpr bool kOverridePolicy = false;
+                ALOGD("Set dynamic refresh rate %f-%f", min_fps, max_fps);
+                return setDesiredDisplayConfigSpecsInternal(display, policy, kOverridePolicy);
 
-            return setDesiredDisplayConfigSpecsInternal(display, policy, kOverridePolicy);
+            } else {
+                const HwcConfigIndexType config(mode);
+                const float fps = mRefreshRateConfigs->getRefreshRateFromConfigId(config).getFps();
+                const scheduler::RefreshRateConfigs::Policy policy{config, {fps, fps}};
+                constexpr bool kOverridePolicy = false;
+                ALOGD("Set constant refresh rate %f", fps);
+                return setDesiredDisplayConfigSpecsInternal(display, policy, kOverridePolicy);
+            }
         }
     });
 
@@ -1082,6 +1092,9 @@ void SurfaceFlinger::setActiveConfigInternal() {
     if (refreshRate.getVsyncPeriod() != oldRefreshRate.getVsyncPeriod()) {
         mTimeStats->incrementRefreshRateSwitches();
     }
+
+    ALOGD("setActiveConfigInternal - setRefreshRateFps %f",refreshRate.getFps());
+
     mPhaseConfiguration->setRefreshRateFps(refreshRate.getFps());
     mVSyncModulator->setPhaseOffsets(mPhaseConfiguration->getCurrentOffsets());
     ATRACE_INT("ActiveConfigFPS", refreshRate.getFps());
@@ -1092,6 +1105,9 @@ void SurfaceFlinger::setActiveConfigInternal() {
                         .getVsyncPeriod();
         mScheduler->onPrimaryDisplayConfigChanged(mAppConnectionHandle, display->getId()->value,
                                                   mUpcomingActiveConfig.configId, vsyncPeriod);
+        ALOGD("setActiveConfigInternal - vsync %ld", (long) vsyncPeriod);
+    } else {
+        ALOGD("setActiveConfigInternal - Scheduler::ConfigEvent::None");
     }
 }
 
@@ -1110,7 +1126,6 @@ void SurfaceFlinger::desiredActiveConfigChangeDone() {
 
 void SurfaceFlinger::performSetActiveConfig() {
     ATRACE_CALL();
-    ALOGV("performSetActiveConfig");
     // Store the local variable to release the lock.
     const auto desiredActiveConfig = getDesiredActiveConfig();
     if (!desiredActiveConfig) {
@@ -1120,12 +1135,16 @@ void SurfaceFlinger::performSetActiveConfig() {
 
     auto& refreshRate =
             mRefreshRateConfigs->getRefreshRateFromConfigId(desiredActiveConfig->configId);
-    ALOGV("performSetActiveConfig changing active config to %d(%s)",
+
+    ALOGD("performSetActiveConfig changing active config to %d(%s)",
           refreshRate.getConfigId().value(), refreshRate.getName().c_str());
+
     const auto display = getDefaultDisplayDeviceLocked();
     if (!display || display->getActiveConfig() == desiredActiveConfig->configId) {
         // display is not valid or we are already in the requested mode
         // on both cases there is nothing left to do
+        ALOGD("performSetActiveConfig changing at active config to %d(%s) - already active",
+          refreshRate.getConfigId().value(), refreshRate.getName().c_str());
         desiredActiveConfigChangeDone();
         return;
     }
@@ -1134,6 +1153,8 @@ void SurfaceFlinger::performSetActiveConfig() {
     // allowed configs might have change by the time we process the refresh.
     // Make sure the desired config is still allowed
     if (!isDisplayConfigAllowed(desiredActiveConfig->configId)) {
+        ALOGD("performSetActiveConfig changing at active config to %d(%s) - not allowed",
+          refreshRate.getConfigId().value(), refreshRate.getName().c_str());
         desiredActiveConfigChangeDone();
         return;
     }
@@ -5048,7 +5069,8 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
         IPCThreadState* ipc = IPCThreadState::self();
         const int uid = ipc->getCallingUid();
         if (CC_UNLIKELY(uid != AID_SYSTEM
-                && !PermissionCache::checkCallingPermission(sHardwareTest))) {
+                && !PermissionCache::checkCallingPermission(sHardwareTest)
+                && !PermissionCache::checkCallingPermission(sAccessSurfaceFlinger))) {
             const int pid = ipc->getCallingPid();
             ALOGE("Permission Denial: "
                     "can't access SurfaceFlinger pid=%d, uid=%d", pid, uid);
@@ -5345,13 +5367,13 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
             case 1035: {
                 n = data.readInt32();
                 mDebugDisplayConfigSetByBackdoor = false;
-                if (n >= 0) {
+                if (n >= -1) {
                     const auto displayToken = getInternalDisplayToken();
                     status_t result = setActiveConfig(displayToken, n);
                     if (result != NO_ERROR) {
                         return result;
                     }
-                    mDebugDisplayConfigSetByBackdoor = true;
+                    //if( n >= 0 ) mDebugDisplayConfigSetByBackdoor = true;
                 }
                 return NO_ERROR;
             }
@@ -6015,7 +6037,7 @@ status_t SurfaceFlinger::setDesiredDisplayConfigSpecsInternal(
         // TODO(b/144711714): For non-primary displays we should be able to set an active config
         // as well. For now, just call directly to setActiveConfigWithConstraints but ideally
         // it should go thru setDesiredActiveConfig, similar to primary display.
-        ALOGV("setAllowedDisplayConfigsInternal for non-primary display");
+        ALOGD("setAllowedDisplayConfigsInternal for non-primary display");
         const auto displayId = display->getId();
         LOG_ALWAYS_FATAL_IF(!displayId);
 
@@ -6051,6 +6073,7 @@ status_t SurfaceFlinger::setDesiredDisplayConfigSpecsInternal(
             ? mRefreshRateConfigs->setOverridePolicy(policy)
             : mRefreshRateConfigs->setDisplayManagerPolicy(*policy);
     if (setPolicyResult < 0) {
+        ALOGE("setAllowedDisplayConfigsInternal - invalid setPolicyResult");
         return BAD_VALUE;
     }
     if (setPolicyResult == scheduler::RefreshRateConfigs::CURRENT_POLICY_UNCHANGED) {
