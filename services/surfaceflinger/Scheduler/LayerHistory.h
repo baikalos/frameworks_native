@@ -132,6 +132,7 @@ private:
 
     // Whether to use priority sent from WindowManager to determine the relevancy of the layer.
     const bool mUseFrameRatePriority;
+
 };
 
 class LayerHistoryV2 : public android::scheduler::LayerHistory {
@@ -195,6 +196,8 @@ private:
 
     // Whether a config change is in progress or not
     std::atomic<bool> mConfigChangePending = false;
+
+    const bool mUseCurrentTimeIfPresentTimeZero;
 };
 
 } // namespace impl

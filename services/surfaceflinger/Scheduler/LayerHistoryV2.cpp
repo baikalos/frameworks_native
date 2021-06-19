@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+//#define LOG_NDEBUG 0
 #undef LOG_TAG
 #define LOG_TAG "LayerHistoryV2"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
@@ -52,6 +53,12 @@ bool traceEnabled() {
     return property_get_bool("debug.sf.layer_history_trace", false);
 }
 
+bool useCurrentTimeIfPresentTimeZero() {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("debug.sf.use_fix_cur_tume", value, "1");
+    return atoi(value);
+}
+
 bool useFrameRatePriority() {
     char value[PROPERTY_VALUE_MAX];
     property_get("debug.sf.use_frame_rate_priority", value, "1");
@@ -79,7 +86,8 @@ void trace(const wp<Layer>& weak, const LayerInfoV2& info, LayerHistory::LayerVo
 } // namespace
 
 LayerHistoryV2::LayerHistoryV2(const scheduler::RefreshRateConfigs& refreshRateConfigs)
-      : mTraceEnabled(traceEnabled()), mUseFrameRatePriority(useFrameRatePriority()) {
+      : mTraceEnabled(traceEnabled()), mUseFrameRatePriority(useFrameRatePriority()), 
+      mUseCurrentTimeIfPresentTimeZero(useCurrentTimeIfPresentTimeZero()) {
     LayerInfoV2::setTraceEnabled(mTraceEnabled);
     LayerInfoV2::setRefreshRateConfigs(refreshRateConfigs);
 }
@@ -103,6 +111,7 @@ void LayerHistoryV2::record(Layer* layer, nsecs_t presentTime, nsecs_t now,
     LOG_FATAL_IF(it == mLayerInfos.end(), "%s: unknown layer %p", __FUNCTION__, layer);
 
     const auto& info = it->second;
+    if( presentTime == 0 && mUseCurrentTimeIfPresentTimeZero ) { presentTime = now; }
     info->setLastPresentTime(presentTime, now, updateType, mConfigChangePending);
 
     // Activate layer if inactive.
